@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# This script enters a continuous loop to perform downloads,
+# classifying files automatically into ~/music or ~/videos.
+# To exit, simply press ENTER when prompted for the URL.
+
+echo ""
+    echo "=================================================="
+    echo "                 🎶 ez-yt-dlp 🎬"
+    echo "=================================================="
+
+# --- MAIN DOWNLOAD LOOP ---
+while true; do
+    
+    echo ""
+    
+    # --- 1. REQUEST URL ---
+    # If the variable is empty (only Enter is pressed), we exit the script.
+    read -p "Enter the video URL you wish to download (or press ENTER to exit): " URL
+
+    if [ -z "$URL" ]; then
+        echo ""
+        echo "Goodbye!"
+        echo ""
+        break # Exits the 'while true' loop and finishes the script
+    fi
+
+    # --- 2. SELECT FORMAT ---
+    echo ""
+    echo "--- Format Options ---"
+    echo "Audio Formats (Save to ~/music):"
+    echo "1) 🔊 FLAC - Lossless quality, largest file size"
+    echo "2) 🎵 MP3 - Most compatible, moderate quality/size"
+    echo "3) 🎶 M4A/AAC - Better quality than MP3, Apple devices"
+    echo "4) 🎼 OPUS - Best compression, smallest files, modern codec"
+    echo ""
+    echo "Video Formats (Save to ~/videos):"
+    echo "5) 📺 MP4 - Most compatible, works everywhere"
+    echo "6) 🎬 WebM - Smaller files, newer browsers only"
+    echo ""
+    read -p "Choose an option (1-6): " FORMAT_CHOICE
+
+    case "$FORMAT_CHOICE" in
+        1)
+            # Audio (FLAC)
+            COMMAND_FORMAT="-x --audio-format flac"
+            DESTINATION_FOLDER="$HOME/music"
+            ;;
+        2)
+            # Audio (MP3)
+            COMMAND_FORMAT="-x --audio-format mp3"
+            DESTINATION_FOLDER="$HOME/music"
+            ;;
+        3)
+            # Audio (M4A/AAC)
+            COMMAND_FORMAT="-x --audio-format m4a"
+            DESTINATION_FOLDER="$HOME/music"
+            ;;
+        4)
+            # Audio (Opus)
+            COMMAND_FORMAT="-x --audio-format opus"
+            DESTINATION_FOLDER="$HOME/music"
+            ;;
+        5)
+            # Video (MP4)
+            COMMAND_FORMAT="-f bestvideo+bestaudio --merge-output-format mp4"
+            DESTINATION_FOLDER="$HOME/videos"
+            ;;
+        6)
+            # Video (WebM)
+            COMMAND_FORMAT="-f bestvideo+bestaudio --merge-output-format webm"
+            DESTINATION_FOLDER="$HOME/videos"
+            ;;
+        *)
+            echo "❌ Invalid option. Restarting..."
+            continue # Goes back to the start of the loop to ask for the URL again
+            ;;
+    esac
+
+    # --- 3. CREATE DESTINATION FOLDER ---
+    if [ ! -d "$DESTINATION_FOLDER" ]; then
+        echo "The folder '$DESTINATION_FOLDER' does not exist. Creating it..."
+        mkdir -p "$DESTINATION_FOLDER"
+    fi
+
+    # --- 4. EXECUTE DOWNLOAD ---
+    echo ""
+    echo "🚀 Starting download to folder: $DESTINATION_FOLDER"
+    echo "URL: $URL"
+    echo ""
+
+    # yt-dlp execution - capture output to get filename with restricted filenames (spaces become underscores)
+    YT_DLP_OUTPUT=$(yt-dlp $COMMAND_FORMAT -o "$DESTINATION_FOLDER/%(title)s.%(ext)s" --restrict-filenames "$URL" 2>&1)
+    DOWNLOAD_STATUS=$?
+
+    # Extract filename from yt-dlp output
+    DOWNLOADED_FILE=$(echo "$YT_DLP_OUTPUT" | grep -oP "Destination: \K.*" | tail -1)
+    if [ -z "$DOWNLOADED_FILE" ]; then
+        # Alternative: try to extract from "already downloaded" message
+        DOWNLOADED_FILE=$(echo "$YT_DLP_OUTPUT" | grep -oP "\[download\] \K[^:]+ has already been downloaded" | sed 's/ has already been downloaded//')
+    fi
+    if [ -z "$DOWNLOADED_FILE" ]; then
+        # Fallback: extract just the filename part
+        DOWNLOADED_FILE=$(echo "$YT_DLP_OUTPUT" | grep -oP "\[download\] .*: \K.*" | tail -1)
+    fi
+
+    echo "$YT_DLP_OUTPUT"
+
+    # Final check
+    if [ $DOWNLOAD_STATUS -eq 0 ]; then
+        echo ""
+        if [ -n "$DOWNLOADED_FILE" ]; then
+            echo "🎉 Download completed successfully!"
+            echo "📁 $DESTINATION_FOLDER/$(basename "$DOWNLOADED_FILE")"
+        else
+            echo "🎉 Download completed successfully in $DESTINATION_FOLDER !"
+        fi
+    else
+        echo "⚠️ Error executing yt-dlp. Check the messages above."
+    fi
+
+done
+
+
+
